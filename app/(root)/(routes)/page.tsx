@@ -17,7 +17,6 @@ import { DataTable } from '@/components/questionTable';
 import { ColumnDef } from "@tanstack/react-table"
 import { UserButton } from '@clerk/nextjs';
 
-
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
 export type Question = {
@@ -194,9 +193,6 @@ const handleAddQuestions = async () => {
 
 return (
   <div className='vh-[100%] vw-[100%] flex flex-col gap-10 items-center justify-center'>
-    <div className='ml-auto p-5' >
-    <UserButton/>
-    </div>
   <div className='flex w-[300px] justify-center items-center flex-col gap-5 '>
 <Input type='file'
   onChange={(e) => {

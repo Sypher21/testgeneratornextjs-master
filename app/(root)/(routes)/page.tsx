@@ -22,16 +22,23 @@ import { UserButton } from '@clerk/nextjs';
 export type Question = {
   thema: string;
   question: string
-  level: string
+  level: number
 }
+
+type AvailableLevels = { 
+    name: string,
+    levels: number[], 
+  };
+
 
 
 const ExcelFileUploader: React.FC = () => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [selectedSheet, setSelectedSheet] = useState<string>('');
-    const [selectedLevel, setSelectedLevel] = useState<string>('');
+    const [selectedLevel, setSelectedLevel] = useState<number>(0);
     const [numQuestions, setNumQuestions] = useState<number>(0);
     const [availableTopics, setAvailableTopics] = useState<string[]>([]);
+    const [availableLevels, setAvailableLevels] = useState<AvailableLevels[]>([]); // Neu: verfügbare Stufen
     const [question, setQuestion] = useState<Question[]>([]);
 
     const removeQuestion = (index: number) => {
@@ -66,35 +73,52 @@ const ExcelFileUploader: React.FC = () => {
     ]
     
 
- // Effekt, um die verfügbaren Themen beim Laden der Komponente abzurufen
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      if (!selectedFile) {
-        console.error('Keine Datei ausgewählt.');
-        return;
+  // Effekt, um die verfügbaren Themen und Stufen beim Laden der Komponente abzurufen
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        if (!selectedFile) {
+          console.error('Keine Datei ausgewählt.');
+          return;
+        }
+
+        const data = await readExcelFile(selectedFile);
+
+        if (!data) {
+          console.error('Fehler beim Lesen der Excel-Datei.');
+          return;
+        }
+
+        const workbook = XLSX.read(data, { type: 'array' });
+        const topics = workbook.SheetNames;
+
+        setAvailableTopics(topics);
+
+        const levelsByTopicArray = topics.map((topic) => {
+          const sheet = workbook.Sheets[topic];
+          const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 2 });
+          const levels = Array.from(new Set(jsonData.map((row: any) => row['Stufe']))).map((level) => parseInt(level, 10));
+          
+          // Filter out NaN values
+          const filteredLevels = levels.filter((level) => !isNaN(level));
+          
+          return { name: topic, levels: filteredLevels };
+        });
+        
+        setAvailableLevels(levelsByTopicArray);
+        
+        console.log(availableLevels);
+        
+        
+      } catch (error) {
+        console.error('Fehler beim Lesen der Excel-Datei:', error);
       }
+    };
 
-      const data = await readExcelFile(selectedFile);
-
-      if (!data) {
-        console.error('Fehler beim Lesen der Excel-Datei.');
-        return;
-      }
-    
-      const workbook = XLSX.read(data, { type: 'array' });  
-      const topics = workbook.SheetNames;
-
-      setAvailableTopics(topics);
-    } catch (error) {
-      console.error('Fehler beim Lesen der Excel-Datei:', error);
+    if (selectedFile) {
+      fetchData();
     }
-  };
-
-  if (selectedFile) {
-    fetchData();
-  }
-}, [selectedFile]);
+  }, [selectedFile]);
 
 
 const readExcelFile = async (file: File): Promise<Uint8Array> => {
@@ -164,7 +188,7 @@ const handleAddQuestions = async () => {
     
   setNumQuestions(0);
   setSelectedSheet("");
-  setSelectedLevel("");
+  setSelectedLevel(0);
 };
     
   const handleGenerateQuestions = async () => {
@@ -218,17 +242,33 @@ return (
       </SelectContent>
     </Select>
 
-    <Input
-      type="text"
-      placeholder="Stufe"
-      value={selectedLevel}
-      onChange={(e) => setSelectedLevel(e.target.value)}
-    />
+  
+  <Select
+        onValueChange={(e) => setSelectedLevel(parseInt(e))}>
+      <SelectTrigger className="w-[300px]">
+        <SelectValue placeholder="Wähle eine Stufe" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          <SelectLabel>Level</SelectLabel>
+          {availableLevels.map((topic) => {
+            if (topic.name === selectedSheet) {
+              return topic.levels.map((level) => (
+              <SelectItem key={level} value={level.toString()}>
+              {level}
+            </SelectItem>
+            ));
+          }
+          return null;
+        })}
+        </SelectGroup>
+      </SelectContent>
+    </Select>     
+
 
     <Input
       type="number"
       placeholder="Anzahl der Fragen"
-      value={numQuestions}
       onChange={(e) => setNumQuestions(parseInt(e.target.value))}
     />
 
